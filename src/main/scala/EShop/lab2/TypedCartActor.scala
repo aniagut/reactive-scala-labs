@@ -10,14 +10,21 @@ import scala.concurrent.duration._
 object TypedCartActor {
 
   sealed trait Command
-  case class AddItem(item: Any)        extends Command
-  case class RemoveItem(item: Any)     extends Command
-  case object ExpireCart               extends Command
-  case object StartCheckout            extends Command
+
+  case class AddItem(item: Any) extends Command
+
+  case class RemoveItem(item: Any) extends Command
+
+  case object ExpireCart extends Command
+
+  case object StartCheckout extends Command
+
   case object ConfirmCheckoutCancelled extends Command
-  case object ConfirmCheckoutClosed    extends Command
+
+  case object ConfirmCheckoutClosed extends Command
 
   sealed trait Event
+
   case class CheckoutStarted(checkoutRef: ActorRef[TypedCheckout.Command]) extends Event
 }
 
@@ -27,14 +34,61 @@ class TypedCartActor {
 
   val cartTimerDuration: FiniteDuration = 5 seconds
 
-  private def scheduleTimer(context: ActorContext[TypedCartActor.Command]): Cancellable = ???
+  private def scheduleTimer(context: ActorContext[TypedCartActor.Command]): Cancellable = context.scheduleOnce(cartTimerDuration, context.self, ExpireCart)
 
-  def start: Behavior[TypedCartActor.Command] = ???
+  def start: Behavior[TypedCartActor.Command] = empty
 
-  def empty: Behavior[TypedCartActor.Command] = ???
+  def empty: Behavior[TypedCartActor.Command] = Behaviors.receive(
+    (context, msg) =>
+      msg match {
+        case AddItem(item) =>
+          context.log.debug(s"Adding $item to the cart.")
+          nonEmpty(Cart.empty.addItem(item), scheduleTimer(context))
+        case other =>
+          context.log.warn(s"Unknown message received: $other.")
+          Behaviors.same
+      }
+  )
 
-  def nonEmpty(cart: Cart, timer: Cancellable): Behavior[TypedCartActor.Command] = ???
+  def nonEmpty(cart: Cart, timer: Cancellable): Behavior[TypedCartActor.Command] = Behaviors.receive(
+    (context, msg) =>
+      msg match {
+        case AddItem(item) =>
+          context.log.debug(s"Adding $item to the cart.")
+          cart.addItem(item)
+          Behaviors.same
+        case RemoveItem(item) if cart.contains(item) && cart.items.size == 1 =>
+          timer.cancel()
+          context.log.debug(s"Removing $item from cart.")
+          empty
+        case RemoveItem(item) if cart.contains(item) =>
+          context.log.debug(s"Removing $item from cart.")
+          cart.removeItem(item)
+          Behaviors.same
+        case ExpireCart =>
+          context.log.debug("Timer expired!")
+          empty
+        case StartCheckout =>
+          context.log.debug("Starting checkout...")
+          inCheckout(cart)
+        case other =>
+          context.log.warn(s"Unknown message received: $other.")
+          Behaviors.same
+      }
+  )
 
-  def inCheckout(cart: Cart): Behavior[TypedCartActor.Command] = ???
-
+  def inCheckout(cart: Cart): Behavior[TypedCartActor.Command] = Behaviors.receive(
+    (context, msg) =>
+      msg match {
+        case ConfirmCheckoutCancelled =>
+          context.log.debug("Checkout cancelled.")
+          nonEmpty(cart, scheduleTimer(context))
+        case ConfirmCheckoutClosed =>
+          context.log.debug("Checkout closed.")
+          empty
+        case other =>
+          context.log.warn(s"Unknown message received: $other.")
+          Behaviors.same
+      }
+  )
 }
