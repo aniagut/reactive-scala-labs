@@ -52,7 +52,7 @@ class CartActor extends Actor {
   def nonEmpty(cart: Cart, timer: Cancellable): Receive = LoggingReceive {
     case AddItem(item) =>
       log.debug(s"Adding $item to the cart.")
-      cart.addItem(item)
+      context become nonEmpty(cart.addItem(item), scheduleTimer)
     case RemoveItem(item) if cart.contains(item) && cart.size == 1 =>
       timer.cancel()
       log.debug(s"Removing $item from cart.")

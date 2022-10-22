@@ -55,16 +55,14 @@ class TypedCartActor {
       msg match {
         case AddItem(item) =>
           context.log.debug(s"Adding $item to the cart.")
-          cart.addItem(item)
-          Behaviors.same
+          nonEmpty(cart.addItem(item), scheduleTimer(context))
         case RemoveItem(item) if cart.contains(item) && cart.items.size == 1 =>
           timer.cancel()
           context.log.debug(s"Removing $item from cart.")
           empty
         case RemoveItem(item) if cart.contains(item) =>
           context.log.debug(s"Removing $item from cart.")
-          cart.removeItem(item)
-          Behaviors.same
+          nonEmpty(cart.removeItem(item), scheduleTimer(context))
         case ExpireCart =>
           context.log.debug("Timer expired!")
           empty
