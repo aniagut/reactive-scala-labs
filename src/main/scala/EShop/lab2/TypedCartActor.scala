@@ -6,7 +6,7 @@ import akka.actor.typed.{ActorRef, Behavior}
 
 import scala.language.postfixOps
 import scala.concurrent.duration._
-import EShop.lab3.OrderManager
+import EShop.lab3.Payment
 
 object TypedCartActor {
 
@@ -18,7 +18,7 @@ object TypedCartActor {
 
   case object ExpireCart extends Command
 
-  case class StartCheckout(orderManagerRef: ActorRef[OrderManager.Command]) extends Command
+  case class StartCheckout(orderManagerCartRef: ActorRef[TypedCartActor.Event]) extends Command
 
   case object ConfirmCheckoutCancelled extends Command
 
@@ -31,7 +31,10 @@ object TypedCartActor {
   case class CheckoutStarted(checkoutRef: ActorRef[TypedCheckout.Command]) extends Event
 }
 
-class TypedCartActor {
+class TypedCartActor(cartAdapter: ActorRef[TypedCartActor.Event] = null,
+                     checkoutAdapter: ActorRef[TypedCheckout.Event] = null,
+                     paymentAdapter: ActorRef[Payment.Event] = null
+                    ) {
 
   import TypedCartActor._
 
@@ -73,12 +76,12 @@ class TypedCartActor {
         case ExpireCart =>
           context.log.debug("Timer expired!")
           empty
-        case StartCheckout(orderManagerRef: ActorRef[OrderManager.Command]) =>
+        case StartCheckout(orderManagerCartRef: ActorRef[TypedCartActor.Event]) =>
           timer.cancel()
           context.log.debug("Starting checkout...")
-          val checkout = context.spawn(new TypedCheckout(context.self).start, "checkout")
+          val checkout = context.spawn(new TypedCheckout(context.self, cartAdapter, checkoutAdapter, paymentAdapter).start, "checkout")
           checkout ! TypedCheckout.StartCheckout
-          orderManagerRef ! OrderManager.ConfirmCheckoutStarted(checkout)
+          orderManagerCartRef ! CheckoutStarted(checkout)
           inCheckout(cart)
         case GetItems(sender) =>
           context.log.debug(s"Showing items in cart.")

@@ -1,6 +1,7 @@
 package EShop.lab3
 
 import EShop.lab2.{TypedCartActor, TypedCheckout}
+import EShop.lab3.Payment.DoPayment
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
@@ -21,19 +22,19 @@ class TypedCheckoutTest
 
   it should "Send close confirmation to cart" in {
     val cartProbe = testKit.createTestProbe[TypedCartActor.Command]()
-    val orderManagerProbe = testKit.createTestProbe[OrderManager.Command]()
-
-    val checkout = testKit.spawn(new TypedCheckout(cartProbe.ref).start, "checkout")
+    val orderManagerCart = testKit.createTestProbe[TypedCartActor.Event]
+    val orderManagerCheckout = testKit.createTestProbe[TypedCheckout.Event]
+    val orderManagerPayment = testKit.createTestProbe[Payment.Event]
+    val checkout = testKit.spawn(new TypedCheckout(cartProbe.ref, orderManagerCart.ref, orderManagerCheckout.ref, orderManagerPayment.ref).start, "checkout")
 
     checkout ! TypedCheckout.StartCheckout
     checkout ! TypedCheckout.SelectDeliveryMethod("parcel locker")
-    checkout ! TypedCheckout.SelectPayment("card", orderManagerProbe.ref)
+    checkout ! TypedCheckout.SelectPayment("card", orderManagerCheckout.ref)
 
-    val paymentStarted = orderManagerProbe.expectMessageType[OrderManager.ConfirmPaymentStarted]
+    val paymentStarted = orderManagerCheckout.expectMessageType[TypedCheckout.PaymentStarted]
 
-    paymentStarted.paymentRef ! Payment.DoPayment
-    orderManagerProbe.expectMessage(OrderManager.ConfirmPaymentReceived)
-
+    paymentStarted.paymentRef ! DoPayment
+    orderManagerPayment.expectMessageType[Payment.PaymentReceived]
     cartProbe.expectMessage(TypedCartActor.ConfirmCheckoutClosed)
   }
 }
