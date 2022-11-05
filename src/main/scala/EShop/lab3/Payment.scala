@@ -7,17 +7,27 @@ import akka.actor.typed.{ActorRef, Behavior}
 object Payment {
 
   sealed trait Command
+
   case object DoPayment extends Command
 }
 
-class Payment(
-  method: String,
-  orderManager: ActorRef[OrderManager.Command],
-  checkout: ActorRef[TypedCheckout.Command]
-) {
+class Payment(method: String,
+              orderManager: ActorRef[OrderManager.Command],
+              checkout: ActorRef[TypedCheckout.Command]
+             ) {
 
   import Payment._
 
-  def start: Behavior[Payment.Command] = ???
-
+  def start: Behavior[Payment.Command] = Behaviors.receive(
+    (context, msg) =>
+      msg match {
+        case DoPayment =>
+          orderManager ! OrderManager.ConfirmPaymentReceived
+          checkout ! TypedCheckout.ConfirmPaymentReceived
+          Behaviors.stopped
+        case other =>
+          context.log.warn(s"Unknown message received: $other.")
+          Behaviors.stopped
+      }
+  )
 }

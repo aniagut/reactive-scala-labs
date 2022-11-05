@@ -11,13 +11,20 @@ import EShop.lab3.OrderManager
 object TypedCartActor {
 
   sealed trait Command
-  case class AddItem(item: Any)                                             extends Command
-  case class RemoveItem(item: Any)                                          extends Command
-  case object ExpireCart                                                    extends Command
+
+  case class AddItem(item: Any) extends Command
+
+  case class RemoveItem(item: Any) extends Command
+
+  case object ExpireCart extends Command
+
   case class StartCheckout(orderManagerRef: ActorRef[OrderManager.Command]) extends Command
-  case object ConfirmCheckoutCancelled                                      extends Command
-  case object ConfirmCheckoutClosed                                         extends Command
-  case class GetItems(sender: ActorRef[Cart])                               extends Command // command made to make testing easier
+
+  case object ConfirmCheckoutCancelled extends Command
+
+  case object ConfirmCheckoutClosed extends Command
+
+  case class GetItems(sender: ActorRef[Cart]) extends Command // command made to make testing easier
 
   sealed trait Event
 
@@ -40,6 +47,10 @@ class TypedCartActor {
         case AddItem(item) =>
           context.log.debug(s"Adding $item to the cart.")
           nonEmpty(Cart.empty.addItem(item), scheduleTimer(context))
+        case GetItems(sender) =>
+          context.log.debug(s"Showing items in cart.")
+          sender ! Cart.empty
+          Behaviors.same
         case other =>
           context.log.warn(s"Unknown message received: $other.")
           Behaviors.same
@@ -62,9 +73,17 @@ class TypedCartActor {
         case ExpireCart =>
           context.log.debug("Timer expired!")
           empty
-        case StartCheckout =>
+        case StartCheckout(orderManagerRef: ActorRef[OrderManager.Command]) =>
+          timer.cancel()
           context.log.debug("Starting checkout...")
+          val checkout = context.spawn(new TypedCheckout(context.self).start, "checkout")
+          checkout ! TypedCheckout.StartCheckout
+          orderManagerRef ! OrderManager.ConfirmCheckoutStarted(checkout)
           inCheckout(cart)
+        case GetItems(sender) =>
+          context.log.debug(s"Showing items in cart.")
+          sender ! cart
+          Behaviors.same
         case other =>
           context.log.warn(s"Unknown message received: $other.")
           Behaviors.same
@@ -80,6 +99,10 @@ class TypedCartActor {
         case ConfirmCheckoutClosed =>
           context.log.debug("Checkout closed.")
           empty
+        case GetItems(sender) =>
+          context.log.debug(s"Showing items in cart.")
+          sender ! cart
+          Behaviors.same
         case other =>
           context.log.warn(s"Unknown message received: $other.")
           Behaviors.same
