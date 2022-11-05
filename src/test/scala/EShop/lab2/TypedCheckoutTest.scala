@@ -260,5 +260,4 @@ object TypedCheckoutTest {
       }
       checkout.start
     }
-
 }
