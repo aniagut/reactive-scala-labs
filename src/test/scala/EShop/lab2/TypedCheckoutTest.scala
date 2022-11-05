@@ -222,41 +222,41 @@ object TypedCheckoutTest {
       val checkout = new TypedCheckout(cartActorProbe) {
 
         override def start: Behavior[TypedCheckout.Command] =
-          Behaviors.setup(_ => {
+          Behaviors.setup { _ =>
             probe ! emptyMsg
             super.start
-          })
+          }
 
         override def selectingDelivery(timer: Cancellable): Behavior[TypedCheckout.Command] =
-          Behaviors.setup(_ => {
+          Behaviors.setup { _ =>
             val result = super.selectingDelivery(timer)
             probe ! selectingDeliveryMsg
             result
-          })
+          }
 
         override def selectingPaymentMethod(timer: Cancellable): Behavior[TypedCheckout.Command] =
-          Behaviors.setup(_ => {
+          Behaviors.setup { _ =>
             probe ! selectingPaymentMethodMsg
             super.selectingPaymentMethod(timer)
-          })
+          }
 
         override def processingPayment(timer: Cancellable): Behavior[TypedCheckout.Command] =
-          Behaviors.setup(_ => {
+          Behaviors.setup { _ =>
             probe ! processingPaymentMsg
             super.processingPayment(timer)
-          })
+          }
 
         override def cancelled: Behavior[TypedCheckout.Command] =
-          Behaviors.setup(_ => {
+          Behaviors.setup { _ =>
             probe ! cancelledMsg
             super.cancelled
-          })
+          }
 
         override def closed: Behavior[TypedCheckout.Command] =
-          Behaviors.setup(_ => {
+          Behaviors.setup { _ =>
             probe ! closedMsg
             super.closed
-          })
+          }
       }
       checkout.start
     }

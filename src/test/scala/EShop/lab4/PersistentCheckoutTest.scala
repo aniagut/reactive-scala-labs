@@ -237,4 +237,98 @@ class PersistentCheckoutTest
     resultCancelCheckout.hasNoEvents shouldBe true
     resultCancelCheckout.state shouldBe Closed
   }
+
+  it should "restore checkout state after system terminate during selecting delivery" in {
+    val resultStartCheckout = eventSourcedTestKit.runCommand(StartCheckout)
+
+    resultStartCheckout.event shouldBe CheckoutStarted
+    resultStartCheckout.state.isInstanceOf[SelectingDelivery] shouldBe true
+
+    Thread.sleep(600)
+
+    val resultAfterRestart = eventSourcedTestKit.restart()
+
+    Thread.sleep(600)
+    resultAfterRestart.state.isInstanceOf[SelectingDelivery] shouldBe true
+
+    Thread.sleep(500)
+
+    eventSourcedTestKit.getState() shouldBe Cancelled
+  }
+
+  it should "restore checkout state after system terminate during selecting payment" in {
+    val resultStartCheckout = eventSourcedTestKit.runCommand(StartCheckout)
+
+    resultStartCheckout.event shouldBe CheckoutStarted
+    resultStartCheckout.state.isInstanceOf[SelectingDelivery] shouldBe true
+
+    val resultSelectDelivery = eventSourcedTestKit.runCommand(SelectDeliveryMethod(deliveryMethod))
+
+    resultSelectDelivery.event.isInstanceOf[DeliveryMethodSelected] shouldBe true
+    resultSelectDelivery.state.isInstanceOf[SelectingPaymentMethod] shouldBe true
+
+    Thread.sleep(600)
+
+    val resultAfterRestart = eventSourcedTestKit.restart()
+
+    Thread.sleep(600)
+    resultAfterRestart.state.isInstanceOf[SelectingPaymentMethod] shouldBe true
+
+    Thread.sleep(500)
+
+    eventSourcedTestKit.getState() shouldBe Cancelled
+  }
+
+  it should "restore checkout state after system terminate during processing payment" in {
+    val resultStartCheckout = eventSourcedTestKit.runCommand(StartCheckout)
+
+    resultStartCheckout.event shouldBe CheckoutStarted
+    resultStartCheckout.state.isInstanceOf[SelectingDelivery] shouldBe true
+
+    val resultSelectDelivery = eventSourcedTestKit.runCommand(SelectDeliveryMethod(deliveryMethod))
+
+    resultSelectDelivery.event.isInstanceOf[DeliveryMethodSelected] shouldBe true
+    resultSelectDelivery.state.isInstanceOf[SelectingPaymentMethod] shouldBe true
+
+    val resultSelectPayment = eventSourcedTestKit.runCommand(SelectPayment(paymentMethod, orderManagerProbe.ref))
+
+    resultSelectPayment.event.isInstanceOf[PaymentStarted] shouldBe true
+    resultSelectPayment.state.isInstanceOf[ProcessingPayment] shouldBe true
+
+    Thread.sleep(600)
+
+    val resultAfterRestart = eventSourcedTestKit.restart()
+
+    Thread.sleep(600)
+    resultAfterRestart.state.isInstanceOf[ProcessingPayment] shouldBe true
+
+    Thread.sleep(500)
+
+    eventSourcedTestKit.getState() shouldBe Cancelled
+  }
+
+  it should "restore checkout state after system terminate during closed" in {
+    val resultStartCheckout = eventSourcedTestKit.runCommand(StartCheckout)
+
+    resultStartCheckout.event shouldBe CheckoutStarted
+    resultStartCheckout.state.isInstanceOf[SelectingDelivery] shouldBe true
+
+    val resultSelectDelivery = eventSourcedTestKit.runCommand(SelectDeliveryMethod(deliveryMethod))
+
+    resultSelectDelivery.event.isInstanceOf[DeliveryMethodSelected] shouldBe true
+    resultSelectDelivery.state.isInstanceOf[SelectingPaymentMethod] shouldBe true
+
+    val resultSelectPayment = eventSourcedTestKit.runCommand(SelectPayment(paymentMethod, orderManagerProbe.ref))
+
+    resultSelectPayment.event.isInstanceOf[PaymentStarted] shouldBe true
+    resultSelectPayment.state.isInstanceOf[ProcessingPayment] shouldBe true
+
+    val resultReceivePayment = eventSourcedTestKit.runCommand(ConfirmPaymentReceived)
+
+    resultReceivePayment.event shouldBe CheckOutClosed
+    resultReceivePayment.state shouldBe Closed
+
+    val resultAfterRestart = eventSourcedTestKit.restart()
+    resultAfterRestart.state shouldBe Closed
+  }
 }

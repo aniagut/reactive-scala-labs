@@ -10,10 +10,10 @@ import org.scalatest.matchers.should.Matchers
 
 class TypedCartTest
   extends ScalaTestWithActorTestKit
-    with AnyFlatSpecLike
-    with BeforeAndAfterAll
-    with Matchers
-    with ScalaFutures {
+  with AnyFlatSpecLike
+  with BeforeAndAfterAll
+  with Matchers
+  with ScalaFutures {
 
   override def afterAll: Unit =
     testKit.shutdownTestKit()
@@ -24,7 +24,7 @@ class TypedCartTest
   it should "add item properly" in {
     //sync
     val testKit = BehaviorTestKit(new TypedCartActor().start)
-    val inbox = TestInbox[Cart]()
+    val inbox   = TestInbox[Cart]()
 
     testKit.run(TypedCartActor.AddItem("item1"))
     testKit.run(TypedCartActor.GetItems(inbox.ref))
@@ -34,7 +34,7 @@ class TypedCartTest
   it should "be empty after adding and removing the same item" in {
     //async
     val cartActor = testKit.spawn(new TypedCartActor().start)
-    val probe = testKit.createTestProbe[Any]()
+    val probe     = testKit.createTestProbe[Any]()
 
     cartActor ! AddItem("item2")
     cartActor ! RemoveItem("item2")
@@ -45,7 +45,7 @@ class TypedCartTest
   it should "start checkout" in {
     //sync
     val testKit = BehaviorTestKit(new TypedCartActor().start)
-    val inbox = TestInbox[OrderManager.Command]()
+    val inbox   = TestInbox[OrderManager.Command]()
 
     testKit.run(AddItem("item3"))
     testKit.run(StartCheckout(inbox.ref))
