@@ -11,27 +11,24 @@ object Payment {
   case object DoPayment extends Command
 
   sealed trait Event
+
   case object PaymentConfirmed extends Event
 
 }
 
-class Payment(method: String,
-              orderManager: ActorRef[OrderManager.Command],
-              checkout: ActorRef[TypedCheckout.Command]
-             ) {
+class Payment(method: String, orderManager: ActorRef[OrderManager.Command], checkout: ActorRef[TypedCheckout.Command]) {
 
   import Payment._
 
-  def start: Behavior[Payment.Command] = Behaviors.receive(
-    (context, msg) =>
-      msg match {
-        case DoPayment =>
-          orderManager ! OrderManager.ConfirmPaymentReceived
-          checkout ! TypedCheckout.ConfirmPaymentReceived
-          Behaviors.stopped
-        case other =>
-          context.log.warn(s"Unknown message received: $other.")
-          Behaviors.stopped
-      }
+  def start: Behavior[Payment.Command] = Behaviors.receive((context, msg) =>
+    msg match {
+      case DoPayment =>
+        orderManager ! OrderManager.ConfirmPaymentReceived
+        checkout ! TypedCheckout.ConfirmPaymentReceived
+        Behaviors.stopped
+      case other =>
+        context.log.warn(s"Unknown message received: $other.")
+        Behaviors.stopped
+    }
   )
 }

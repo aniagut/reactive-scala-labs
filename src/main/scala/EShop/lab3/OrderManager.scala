@@ -33,16 +33,15 @@ class OrderManager {
 
   import OrderManager._
 
-  def start: Behavior[OrderManager.Command] = Behaviors.setup {
-    context =>
-      val cart = context.spawn(new TypedCartActor().start, "cart")
-      open(cart)
+  def start: Behavior[OrderManager.Command] = Behaviors.setup { context =>
+    val cart = context.spawn(new TypedCartActor().start, "cart")
+    open(cart)
   }
 
   def uninitialized: Behavior[OrderManager.Command] = start
 
-  def open(cartActor: ActorRef[TypedCartActor.Command]): Behavior[OrderManager.Command] = Behaviors.receive(
-    (context, msg) =>
+  def open(cartActor: ActorRef[TypedCartActor.Command]): Behavior[OrderManager.Command] =
+    Behaviors.receive((context, msg) =>
       msg match {
         case AddItem(id, sender) =>
           cartActor ! TypedCartActor.AddItem(id)
@@ -59,24 +58,24 @@ class OrderManager {
           context.log.warn(s"Unknown message received: $other.")
           Behaviors.same
       }
+    )
+
+  def inCheckout(
+    cartActorRef: ActorRef[TypedCartActor.Command],
+    senderRef: ActorRef[Ack]
+  ): Behavior[OrderManager.Command] = Behaviors.receive((context, msg) =>
+    msg match {
+      case OrderManager.ConfirmCheckoutStarted(checkoutRef) =>
+        senderRef ! Done
+        inCheckout(checkoutRef)
+      case other =>
+        context.log.warn(s"Unknown message received: $other.")
+        Behaviors.same
+    }
   )
 
-  def inCheckout(cartActorRef: ActorRef[TypedCartActor.Command],
-                 senderRef: ActorRef[Ack]
-                ): Behavior[OrderManager.Command] = Behaviors.receive(
-    (context, msg) =>
-      msg match {
-        case OrderManager.ConfirmCheckoutStarted(checkoutRef) =>
-          senderRef ! Done
-          inCheckout(checkoutRef)
-        case other =>
-          context.log.warn(s"Unknown message received: $other.")
-          Behaviors.same
-      }
-  )
-
-  def inCheckout(checkoutActorRef: ActorRef[TypedCheckout.Command]): Behavior[OrderManager.Command] = Behaviors.receive(
-    (context, msg) =>
+  def inCheckout(checkoutActorRef: ActorRef[TypedCheckout.Command]): Behavior[OrderManager.Command] =
+    Behaviors.receive((context, msg) =>
       msg match {
         case SelectDeliveryAndPaymentMethod(delivery, payment, sender) =>
           checkoutActorRef ! TypedCheckout.SelectDeliveryMethod(delivery)
@@ -86,27 +85,24 @@ class OrderManager {
           context.log.warn(s"Unknown message received: $other.")
           Behaviors.same
       }
-  )
+    )
 
-  def inPayment(senderRef: ActorRef[Ack]): Behavior[OrderManager.Command] = Behaviors.receive {
-    (context, msg) =>
-      msg match {
-        case ConfirmPaymentStarted(paymentRef) =>
-          senderRef ! Done
-          inPayment(paymentRef, senderRef)
-        case ConfirmPaymentReceived =>
-          senderRef ! Done
-          finished
-        case other =>
-          context.log.warn(s"Unknown message received: $other.")
-          Behaviors.same
-      }
+  def inPayment(senderRef: ActorRef[Ack]): Behavior[OrderManager.Command] = Behaviors.receive { (context, msg) =>
+    msg match {
+      case ConfirmPaymentStarted(paymentRef) =>
+        senderRef ! Done
+        inPayment(paymentRef, senderRef)
+      case ConfirmPaymentReceived =>
+        senderRef ! Done
+        finished
+      case other =>
+        context.log.warn(s"Unknown message received: $other.")
+        Behaviors.same
+    }
   }
 
-  def inPayment(paymentActorRef: ActorRef[Payment.Command],
-                senderRef: ActorRef[Ack]
-               ): Behavior[OrderManager.Command] = Behaviors.receive {
-    (context, msg) =>
+  def inPayment(paymentActorRef: ActorRef[Payment.Command], senderRef: ActorRef[Ack]): Behavior[OrderManager.Command] =
+    Behaviors.receive { (context, msg) =>
       msg match {
         case Pay(sender) =>
           paymentActorRef ! Payment.DoPayment
@@ -115,7 +111,7 @@ class OrderManager {
           context.log.warn(s"Unknown message received: $other.")
           Behaviors.same
       }
-  }
+    }
 
   def finished: Behavior[OrderManager.Command] = Behaviors.stopped
 }
