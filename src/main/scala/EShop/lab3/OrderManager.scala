@@ -24,6 +24,10 @@ object OrderManager {
 
   case object ConfirmPaymentReceived extends Command
 
+  case object PaymentRejected extends Command
+
+  case object PaymentRestarted extends Command
+
   sealed trait Ack
 
   case object Done extends Ack //trivial ACK
