@@ -25,9 +25,6 @@ object RequestNode extends App {
 }
 
 object RequestCounter {
-  sealed trait TopicMessage
-  case object ProductCatalogRequest extends TopicMessage
-
   sealed trait Command
   case class ProductRequestsCount(replyTo: ActorRef[Int]) extends Command
   case object IncrementCounter extends Command
@@ -44,8 +41,8 @@ object RequestCounterActor {
         RequestCounterServiceKey,
         context.self)
       val topic = context.spawn(RequestCounterTopic(), "RequestCounterTopic")
-      val adapter = context.messageAdapter[TopicMessage] {
-        case ProductCatalogRequest => IncrementCounter
+      val adapter = context.messageAdapter[String] {
+        case id: String => IncrementCounter
       }
 
       topic ! Topic.Subscribe(adapter)
@@ -67,6 +64,6 @@ object RequestCounterActor {
 object RequestCounterTopic {
   import RequestCounter._
 
-  def apply(): Behavior[Topic.Command[TopicMessage]] =
-    Topic[TopicMessage]("request-counter")
+  def apply(): Behavior[Topic.Command[String]] =
+    Topic[String]("request-counter")
 }

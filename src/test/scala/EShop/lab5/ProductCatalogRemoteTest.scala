@@ -22,13 +22,13 @@ class ProductCatalogRemoteTest extends AsyncFlatSpecLike with Matchers {
     val actorSystem =
       ActorSystem[Nothing](
         Behaviors.empty,
-        "ProductCatalogCluster",
+        "ProductCatalog",
         config.getConfig("productcatalog").withFallback(config)
       )
     actorSystem.systemActorOf(ProductCatalog(new SearchService()), "productcatalog")
 
     val anotherActorSystem =
-      ActorSystem[Nothing](Behaviors.empty, "ProductCatalogCluster")
+      ActorSystem[Nothing](Behaviors.empty, "ProductCatalog")
     implicit val scheduler = anotherActorSystem.scheduler
 
     // wait for the cluster to form up

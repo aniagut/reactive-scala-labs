@@ -79,9 +79,8 @@ object ProductCatalog {
       Behaviors.receiveMessage {
         case GetItems(brand, productKeyWords, sender) =>
           sender ! Items(searchService.search(brand, productKeyWords))
-          requestCounterTopic ! Topic.Publish(
-            RequestCounter.ProductCatalogRequest)
-          requestLoggerTopic ! Topic.Publish((brand, productKeyWords))
+          requestCounterTopic ! Topic.Publish(context.self.path.name)
+          requestLoggerTopic ! Topic.Publish((brand, productKeyWords, context.self.path.name))
           Behaviors.same
       }
   }

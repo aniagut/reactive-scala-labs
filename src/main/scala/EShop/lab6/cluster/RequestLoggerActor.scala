@@ -7,7 +7,7 @@ import akka.actor.typed.{Behavior}
 
 object RequestLogger {
   sealed trait Command
-  case class LogRequest(brand: String, keywords: List[String]) extends Command
+  case class LogRequest(brand: String, keywords: List[String], id: String) extends Command
 }
 
 object RequestLoggerActor {
@@ -21,9 +21,9 @@ object RequestLoggerActor {
         RequestLoggerServiceKey,
         context.self)
       val topic = context.spawn(RequestLoggerTopic(), "RequestLoggerTopic")
-      val adapter = context.messageAdapter[(String, List[String])] {
-        case (brand: String, keywords: List[String]) =>
-          LogRequest(brand, keywords)
+      val adapter = context.messageAdapter[(String, List[String], String)] {
+        case (brand: String, keywords: List[String], id: String) =>
+          LogRequest(brand, keywords, id)
       }
       topic ! Topic.Subscribe(adapter)
       logRequests()
@@ -32,9 +32,9 @@ object RequestLoggerActor {
   def logRequests(): Behavior[Command] =
     Behaviors.receive((context, msg) =>
       msg match {
-        case LogRequest(brand: String, keywords: List[String]) =>
+        case LogRequest(brand: String, keywords: List[String], id: String) =>
           context.log.info(
-            s"Received request containing brand ${brand} and keywords ${keywords mkString ", "}")
+            s"Received request containing brand ${brand} and keywords ${keywords mkString ", "}. Instance id is ${id}")
           Behaviors.same
         case other =>
           context.log.warn(s"Unknown message received: $other.")
@@ -45,6 +45,6 @@ object RequestLoggerActor {
 object RequestLoggerTopic {
   import RequestLogger._
 
-  def apply(): Behavior[Topic.Command[(String, List[String])]] =
-    Topic[(String, List[String])]("request-logger")
+  def apply(): Behavior[Topic.Command[(String, List[String], String)]] =
+    Topic[(String, List[String], String)]("request-logger")
 }
