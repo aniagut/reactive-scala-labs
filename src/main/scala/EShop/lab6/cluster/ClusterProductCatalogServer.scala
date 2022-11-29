@@ -47,21 +47,40 @@ class ClusterProductCatalogServer() extends ProductCatalogJsonSupport {
   val workers =
     system.systemActorOf(Routers.group(ProductCatalog.ProductCatalogServiceKey),
                          "clusterWorkerRouter")
+  val requestsCounter =
+    system.systemActorOf(Routers.group(RequestCounterActor.RequestCounterServiceKey),
+      "requestCounterRouter")
 
   def routes: Route =
-    path("products") {
-      get {
-        parameters("brand".as[String], "keywords".as[String]) {
-          (brand, keywords) =>
-            complete {
-              val items = workers
-                .ask(ref => GetItems(brand, keywords.split(" ").toList, ref))
-                .mapTo[ProductCatalog.Items]
-              Future.successful(items)
-            }
+    concat(
+      path("products") {
+        get {
+          parameters("brand".as[String], "keywords".as[String]) {
+            (brand, keywords) =>
+              complete {
+                val items = workers
+                  .ask(ref => GetItems(brand, keywords.split(" ").toList, ref))
+                  .mapTo[ProductCatalog.Items]
+                Future.successful(items)
+              }
+          }
+        }
+      },
+      path("counter") {
+        get {
+          complete {
+            val count = requestsCounter
+              .ask(ref => RequestCounter.ProductRequestsCount(ref))
+              .map { count =>
+                s"""{
+                   |"count": $count
+                   |}""".stripMargin
+              }
+            Future.successful(count)
+          }
         }
       }
-    }
+    )
 
   def run(port: Int): Unit = {
     val bindingFuture = Http().newServerAt("localhost", port).bind(routes)
