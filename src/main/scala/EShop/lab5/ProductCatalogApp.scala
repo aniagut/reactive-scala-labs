@@ -1,5 +1,11 @@
 package EShop.lab5
 
+import EShop.lab6.cluster.{
+  RequestCounter,
+  RequestCounterTopic,
+  RequestLoggerTopic
+}
+import akka.actor.typed.pubsub.Topic
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
@@ -60,14 +66,23 @@ object ProductCatalog {
   sealed trait Ack
   case class Items(items: List[Item]) extends Ack
 
-  def apply(searchService: SearchService): Behavior[Query] = Behaviors.setup { context =>
-    context.system.receptionist ! Receptionist.register(ProductCatalogServiceKey, context.self)
+  def apply(searchService: SearchService): Behavior[Query] = Behaviors.setup {
+    context =>
+      context.system.receptionist ! Receptionist
+        .register(ProductCatalogServiceKey, context.self)
 
-    Behaviors.receiveMessage {
-      case GetItems(brand, productKeyWords, sender) =>
-        sender ! Items(searchService.search(brand, productKeyWords))
-        Behaviors.same
-    }
+      val requestCounterTopic =
+        context.spawn(RequestCounterTopic(), "RequestCounterTopic")
+      val requestLoggerTopic =
+        context.spawn(RequestLoggerTopic(), "RequestLoggerTopic")
+
+      Behaviors.receiveMessage {
+        case GetItems(brand, productKeyWords, sender) =>
+          sender ! Items(searchService.search(brand, productKeyWords))
+          requestCounterTopic ! Topic.Publish(context.self.path.name)
+          requestLoggerTopic ! Topic.Publish((brand, productKeyWords, context.self.path.name))
+          Behaviors.same
+      }
   }
 }
 
